@@ -1,0 +1,80 @@
+public class BaseSetting
+    {        
+        private ApplicationDbContext db = new ApplicationDbContext();
+
+        public BaseSetting(string user, string password)
+        {
+            CreatAccount(user, password).Wait();
+        }
+
+        /*
+         * Creates default user account
+         */
+        protected async Task CreatAccount(string user, string password)
+        {
+            const string Admin = "Administrator";            
+            var userManager = new UserManager<ApplicationUser>(new UserStore<ApplicationUser>(db));
+            var roleManager = new RoleManager<IdentityRole>(new RoleStore<IdentityRole>(db));
+
+            ApplicationUser BaseUser = CreateBaseUser(user);
+
+            try
+            {
+                // creates default user account
+                if (userManager.Users.Count() == 0)
+                {
+                    await userManager.CreateAsync(BaseUser, password);
+                }
+
+                //creates default roles from enum
+                if (!await roleManager.RoleExistsAsync(Admin))
+                {
+                    await SetupRoles(roleManager);
+                }
+
+                //Adds the first created user account to the Adninistrator role
+                if (!await userManager.IsInRoleAsync(BaseUser.Id, Admin))
+                {
+                    await userManager.AddToRoleAsync(BaseUser.Id, Admin);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+
+                db.Dispose();
+                userManager.Dispose();
+                roleManager.Dispose();
+            }
+        }
+
+        /*
+         * Sets up Roles from enum                   
+         */
+        private static async Task SetupRoles(RoleManager<IdentityRole> rolemanager)
+        {
+            foreach (var Role in Enum.GetValues(typeof(RolesList)))
+            {                
+                var role = new IdentityRole
+                {
+                    Name = Role.ToString()
+                };
+
+                await rolemanager.CreateAsync(role);
+            }
+        }
+
+        /*
+         * Base User setting
+         */
+        private static ApplicationUser CreateBaseUser(string admin)
+        {
+            var BaseUser = new ApplicationUser();
+            BaseUser.UserName = admin;
+            BaseUser.Email = admin;
+            BaseUser.EmailConfirmed = true;
+            return BaseUser;
+        }                
+    }
